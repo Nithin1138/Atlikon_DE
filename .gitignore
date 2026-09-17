@@ -16,6 +16,7 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
 *.so
 build/
 develop-eggs/
@@ -69,3 +70,6 @@ credentials.json
 scratch/
 metastore_db/
 derby.log
+spark-warehouse/
+.ruff_cache/
+

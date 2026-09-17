@@ -1,0 +1,22 @@
+[project]
+name = "atlikon-de"
+version = "0.1.0"
+description = "Atlikon Data Engineering Pipeline"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "pyspark>=3.5.0",
+    "delta-spark>=3.0.0",
+    "pytest>=8.0.0",
+]
+
+[tool.pyrefly]
+python-interpreter-path = ".venv/bin/python"
+search-path = [
+    "src",
+    "tests",
+    "."
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,101 @@
+# Databricks Workflow (Jobs) Specification
+# Version-controlled pipeline DAG definition for AtliQ FMCG Data Integration
+
+resources:
+  jobs:
+    fmcg_medallion_pipeline:
+      name: fmcg_medallion_pipeline
+      schedule:
+        quartz_cron_expression: "0 0 3 * * ?"  # Daily at 3:00 AM IST
+        timezone_id: "Asia/Kolkata"
+      
+      job_clusters:
+        - job_cluster_key: fmcg_etl_cluster
+          new_cluster:
+            spark_version: 13.3.x-scala2.12
+            node_type_id: i3.xlarge
+            autoscale:
+              min_workers: 2
+              max_workers: 8
+            spark_conf:
+              spark.sql.adaptive.enabled: "true"
+              spark.sql.adaptive.coalescePartitions.enabled: "true"
+            aws_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK
+              zone_id: auto
+
+      tasks:
+        # Task 1: Catalog & Schema Bootstrap
+        - task_key: setup_catalog
+          job_cluster_key: fmcg_etl_cluster
+          notebook_task:
+            notebook_path: 1_setup/1_setup_catalog
+            base_parameters:
+              env: "prod"
+
+        # Task 2: Date Dimension Generation
+        - task_key: dim_date
+          depends_on:
+            - task_key: setup_catalog
+          job_cluster_key: fmcg_etl_cluster
+          notebook_task:
+            notebook_path: 1_setup/dim_date_table_creation
+            base_parameters:
+              env: "prod"
+
+        # Task 3: Products Dimension Processing (Full Load)
+        - task_key: products
+          depends_on:
+            - task_key: setup_catalog
+          job_cluster_key: fmcg_etl_cluster
+          notebook_task:
+            notebook_path: 2_dimension_data_processing/2_products_data_processing
+            base_parameters:
+              catalog: "fmcg"
+              data_source: "products"
+              env: "prod"
+
+        # Task 4: Pricing Dimension Processing (Depends on Products for surrogate key enrichment)
+        - task_key: pricing
+          depends_on:
+            - task_key: products
+          job_cluster_key: fmcg_etl_cluster
+          notebook_task:
+            notebook_path: 2_dimension_data_processing/3_pricing_data_processing
+            base_parameters:
+              catalog: "fmcg"
+              data_source: "gross_price"
+              env: "prod"
+
+        # Task 5: Customer Dimension Processing
+        - task_key: customers
+          depends_on:
+            - task_key: setup_catalog
+          job_cluster_key: fmcg_etl_cluster
+          notebook_task:
+            notebook_path: 2_dimension_data_processing/customer_data_processing
+            base_parameters:
+              catalog: "fmcg"
+              data_source: "customers"
+              env: "prod"
+
+        # Task 6: Incremental Fact Orders Processing (Depends on Products & Customers)
+        - task_key: incremental_orders
+          depends_on:
+            - task_key: products
+            - task_key: customers
+          job_cluster_key: fmcg_etl_cluster
+          notebook_task:
+            notebook_path: 3_fact_dat_processing/2_incremental_load_fact
+            base_parameters:
+              catalog: "fmcg"
+              data_source: "orders"
+              env: "prod"
+          retry_on_timeout: true
+          max_retries: 2
+          min_retry_interval_millis: 60000
+
+      email_notifications:
+        on_failure:
+          - "data-engineering-alerts@atliq.com"
