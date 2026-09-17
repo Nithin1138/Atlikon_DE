@@ -1,0 +1,10 @@
+# Enforce Linux line endings (LF) across all text files for Databricks compatibility
+* text=auto eol=lf
+*.ipynb text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
